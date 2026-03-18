@@ -1,0 +1,116 @@
+retrieval:
+  top_k: 4
+  lexical_weight: 1.0
+  title_weight: 0.3
+  trust_weight: 0.2
+  recency_weight: 0.1
+
+clustering:
+  provider: baseline
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  random_search_evaluations: 16
+  min_clusters: 5
+  n_neighbors: [3, 4, 5, 6, 8, 10, 12]
+  min_cluster_size: [3, 4, 5, 6, 8, 10]
+  min_samples: [1, 2, 3, 4, 5, 6]
+  cluster_selection_epsilon: [0.0, 0.01, 0.03, 0.05, 0.1]
+  umap_components: 10
+  umap_metric: cosine
+  random_state: 101
+  noise_penalty: 0.25
+
+generation:
+  questions:
+    provider: baseline
+    model: gpt-5.4-mini
+    prompt_id: questions.cluster.v1
+    temperature: 0.3
+    max_output_tokens: 900
+    fanout_prompt_ids:
+      - questions.cluster.v1
+      - questions.cluster.v2
+      - questions.cluster.v3
+    max_questions_per_cluster: 6
+    within_cluster_dedupe_threshold: 0.22
+    across_cluster_dedupe_threshold: 0.55
+  answers:
+    provider: baseline
+    model: gpt-5.4
+    prompt_id: answers.grounded.v1
+    temperature: 0.2
+    max_output_tokens: 1200
+  cluster_summaries:
+    provider: baseline
+    model: gpt-5.4
+    prompt_id: summaries.cluster.v2
+    temperature: 0.2
+    max_output_tokens: 1200
+    scale_output_with_input: true
+    output_token_estimate_ratio: 0.6
+    output_token_buffer: 200
+    max_output_tokens_cap: 3200
+  executive_summary:
+    provider: baseline
+    model: gpt-5.4
+    prompt_id: summaries.executive.v2
+    temperature: 0.2
+    max_output_tokens: 1000
+    scale_output_with_input: true
+    output_token_estimate_ratio: 0.8
+    output_token_buffer: 300
+    max_output_tokens_cap: 2600
+
+sdg:
+  provider: baseline
+  model: gpt-5.4-mini
+  prompt_id: sdg.classify.v1
+  max_labels_per_question: 3
+  min_score: 0.18
+
+run:
+  cache_enabled: true
+  offline_mode: false
+  default_source_profile: humanitarian_core
+
+openai_api_key: ${OPENAI_API_KEY}
+
+sources:
+  reliefweb:
+    enabled: true
+    kind: reliefweb_api
+    trust_tier: humanitarian_primary
+    priority: 100
+    base_url: https://api.reliefweb.int/v2/reports
+    appname: your-approved-reliefweb-appname
+    user_agent: sitrep/0.1
+    page_size: 25
+    max_pages: 2
+  preventionweb:
+    enabled: true
+    kind: rss_html
+    trust_tier: humanitarian_primary
+    priority: 90
+    base_url: https://www.preventionweb.net
+    feed_url: https://example.com/preventionweb-feed.xml
+  the_new_humanitarian:
+    enabled: true
+    kind: rss_html
+    trust_tier: humanitarian_primary
+    priority: 85
+    base_url: https://www.thenewhumanitarian.org
+    feed_url: https://example.com/tnh-feed.xml
+  fixtures:
+    enabled: false
+    kind: fixture_manifest
+    trust_tier: curated_web
+    priority: 70
+    fixture_manifest_path: .context/fixtures/sudan_week34_html/manifest.json
+
+source_profiles:
+  humanitarian_core:
+    - reliefweb
+    - preventionweb
+    - the_new_humanitarian
+
+  local_fixture:
+    - fixtures
