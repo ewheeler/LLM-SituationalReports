@@ -1,35 +1,27 @@
 # A Large-Language-Model Framework for Automated Humanitarian Situation Reporting
 
-This repository contains the original notebook-based implementation for the paper *"A Large-Language-Model Framework for Automated Humanitarian Situation Reporting"* and an in-progress Python package rewrite under `src/sitrep/` for a more maintainable, deployment-friendly pipeline.
+This repository contains the modernized `src/sitrep/` implementation of an automated humanitarian situation-report generation pipeline.
 
-**Interactive report viewer:**  
-https://idecost.github.io/LLM-SituationalReports/Viewer/viewer_v2.html
+The current codebase is organized around a production-style Python package and CLI rather than the earlier notebook-oriented workflow. It supports typed configuration, multi-source ingestion, paragraph-level provenance, notebook-style clustering, model-backed generation, and report assembly with citation-aware post-processing.
 
-![Pipeline Overview](./Images/pipeline.png)
+## Capabilities
 
-## Status
+The modern pipeline supports:
 
-The repository now has two parallel implementations:
-
-- `Codes/`: the original research notebooks and legacy artifact paths used in the paper.
-- `src/sitrep/`: the new Python package and CLI for a production-style pipeline.
-
-The modernized pipeline supports:
-
-- multi-source ingestion with first-class ReliefWeb support,
-- cached and offline source replay,
-- paragraph-level provenance,
+- ReliefWeb-first live ingestion with cached raw payload storage,
+- fixture-backed offline regression runs,
+- paragraph splitting and provenance-preserving preprocessing,
 - notebook-style `UMAP + HDBSCAN` clustering,
 - configurable question, answer, SDG, summary, and report stages,
 - OpenAI-backed structured generation,
 - cluster-organized and SDG-organized report outputs,
-- report post-processing with citation renumbering and context recovery.
+- citation renumbering, context recovery, and summary context maps.
 
 ## Documentation
 
-- `docs/installation.md`: environment setup, dependencies, and local development install.
-- `docs/configuration.md`: `.env`, JSON/YAML config files, model settings, source settings, and runtime overrides.
-- `docs/deployment.md`: recommended deployment patterns, operational checklist, and production considerations.
+- `docs/installation.md`: environment setup and dependency installation.
+- `docs/configuration.md`: `.env`, JSON/YAML config, runtime flags, and stage settings.
+- `docs/deployment.md`: deployment patterns, persistence, secrets, and production hardening.
 
 ## Quick Start
 
@@ -42,17 +34,13 @@ python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-For the full notebook-style clustering stack, also install:
+For notebook-style clustering support:
 
 ```bash
 python -m pip install -e '.[advanced-clustering]'
 ```
 
-You can also install from `requirements.txt`, but the editable install is the best fit for active development.
-
-### 2. Configure secrets and runtime settings
-
-Copy the checked-in environment template:
+### 2. Configure runtime secrets
 
 ```bash
 cp .env.example .env
@@ -69,7 +57,7 @@ Optional:
 - `BBC_FEED_URL`
 - `SITREP_FIXTURE_MANIFEST`
 
-The CLI automatically loads the repo-root `.env` file before resolving settings.
+The CLI automatically loads the repo-root `.env` file.
 
 ### 3. Inspect resolved configuration
 
@@ -101,36 +89,46 @@ PYTHONPATH=src python -m sitrep.cli ingest \
   --sources reliefweb
 ```
 
-## Modernized Pipeline Overview
+## Package Layout
 
-The new package lives under `src/sitrep/` and is organized as follows:
+```text
+├── src/sitrep/         # Modern Python package
+├── config/             # Example JSON/YAML settings
+├── docs/               # Installation, configuration, deployment docs
+├── requirements.txt    # Environment dependencies
+└── pyproject.toml      # Packaging metadata
+```
 
-- `src/sitrep/settings.py`: typed application, source, storage, and generation settings.
-- `src/sitrep/cli.py`: command-line interface.
-- `src/sitrep/ingestion/`: source connectors, request builders, attachment parsing, and ingestion DAG nodes.
-- `src/sitrep/preprocessing/`: paragraph extraction and provenance preservation.
-- `src/sitrep/clustering/`: baseline and notebook-style clustering flows.
-- `src/sitrep/questions/`: baseline and notebook-style multi-prompt question generation.
-- `src/sitrep/answers/`: retrieval-backed answer synthesis.
+Key modules include:
+
+- `src/sitrep/settings.py`: typed application and source settings.
+- `src/sitrep/cli.py`: CLI entrypoint.
+- `src/sitrep/ingestion/`: source connectors, request builders, and attachment parsing.
+- `src/sitrep/preprocessing/`: paragraph extraction and normalization.
+- `src/sitrep/clustering/`: baseline and notebook-style clustering.
+- `src/sitrep/questions/`: baseline and notebook-style question generation.
+- `src/sitrep/answers/`: retrieval-backed answer generation.
 - `src/sitrep/sdg/`: SDG classification and grouping.
 - `src/sitrep/summaries/`: cluster, SDG, and executive summary generation.
-- `src/sitrep/reports/`: report assembly, markdown rendering, citation post-processing, and context maps.
-- `src/sitrep/llm/`: prompt registry, JSON schemas, and OpenAI Responses API integration.
+- `src/sitrep/reports/`: report assembly, markdown rendering, and citation post-processing.
+- `src/sitrep/llm/`: prompts, schemas, and OpenAI Responses API integration.
 - `src/sitrep/orchestration/`: Hamilton run profiles and driver wiring.
 
-## Input Sources
+## Inputs and Outputs
 
-The rewrite is no longer limited to local files. It supports:
+### Sources
 
-- `reliefweb`: primary live source for humanitarian reports.
-- `fixtures`: local manifest-backed corpora for offline development and regression tests.
-- `rss` / `generic_html` patterns used by secondary connectors in the scaffold.
+The current scaffold supports:
 
-ReliefWeb raw request/response payloads are cached under `data/raw/reliefweb/`.
+- `reliefweb`: primary live humanitarian source,
+- `fixtures`: local manifest-backed corpora for offline development,
+- RSS / generic HTML connector patterns for secondary ingestion.
 
-## Outputs
+ReliefWeb request and response payloads are cached under `data/raw/reliefweb/`.
 
-The modernized pipeline writes runtime outputs to:
+### Outputs
+
+The pipeline writes runtime artifacts to:
 
 - `data/processed/paragraphs/`
 - `data/processed/clusters/`
@@ -141,55 +139,29 @@ The modernized pipeline writes runtime outputs to:
 - `artifacts/reports/`
 - `artifacts/ingestion/`
 
-Generated reports are available in both JSON and Markdown forms, with cluster-organized and SDG-organized variants.
+Reports are emitted in JSON and Markdown, with both cluster-organized and SDG-organized variants.
 
 ## Model-Backed Generation
 
-The `generation` config block lets you switch stages independently between:
+Each generation stage can run with:
 
 - `provider: baseline`
 - `provider: openai`
 
-Current defaults target concrete live model IDs:
+The current defaults target:
 
 - `gpt-5.4`
 - `gpt-5.4-mini`
 
-Cluster and executive summary stages now scale `max_output_tokens` from prompt size using configurable ratios, buffers, and caps to reduce structured-output truncation on larger evidence bundles.
+Cluster and executive summary stages can scale `max_output_tokens` from prompt size using configurable ratios, buffers, and caps to reduce structured-output truncation.
 
-## Deployment Notes
+## Deployment
 
-This repository does not yet include a first-party Dockerfile or infrastructure-as-code deployment package. The current recommendation is to deploy the CLI as a scheduled batch job or worker process. See `docs/deployment.md` for:
+This repository is currently best deployed as a batch pipeline rather than a web app. See `docs/deployment.md` for guidance on:
 
-- local workstation deployment,
-- cron / scheduler deployment,
-- containerization guidance,
-- secret management,
-- cache and artifact persistence,
-- production hardening recommendations.
-
-## Repository Structure
-
-```text
-├── src/sitrep/         # Modern Python package rewrite
-├── config/             # Example JSON/YAML settings for the new pipeline
-├── docs/               # Installation, configuration, and deployment docs
-├── Codes/              # Original notebook implementation
-├── Results/            # Legacy intermediate artifacts used by the notebook workflow
-├── Results_evaluation/ # Evaluation data
-└── Viewer/             # Interactive report viewer
-```
-
-## Legacy Notebook Workflow
-
-The original paper workflow remains in `Codes/` and still documents the research pipeline stages:
-
-1. source selection,
-2. cleaning and clustering,
-3. question generation,
-4. answer extraction,
-5. cluster and SDG summaries,
-6. executive summary generation,
-7. report assembly and visualization.
-
-Those notebooks continue to be useful as a methodological reference while the new `src/sitrep/` implementation is hardened for repeatable runs, testing, and deployment.
+- workstation use,
+- scheduled jobs,
+- containerized workers,
+- persistence and cache handling,
+- secrets,
+- production hardening.
